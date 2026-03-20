@@ -1,0 +1,282 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Aswin's Money Manager</title>
+<script src="https://cdn.tailwindcss.com"></script>
+
+<style>
+.dark { background-color: #111827; color: white; }
+.page { display: none; }
+.active { display: block; }
+</style>
+</head>
+
+<body class="bg-gray-100" id="body">
+
+<!-- HEADER -->
+<div class="flex justify-between p-3 bg-blue-600 text-white">
+<button onclick="location.reload()">🔄</button>
+<h1 class="font-bold">Aswin's Money Manager</h1>
+<button onclick="toggleDark()">🌙</button>
+</div>
+
+<!-- NAV -->
+<div class="flex justify-around bg-gray-200 p-2 text-sm">
+<button onclick="showPage('dashboard')">Dashboard</button>
+<button onclick="showPage('log')">Log</button>
+<button onclick="showPage('clients')">Clients</button>
+<button onclick="showPage('calendar')">Calendar</button>
+</div>
+
+<!-- DASHBOARD -->
+<div id="dashboard" class="page active p-3">
+
+<!-- STATS -->
+<div class="grid grid-cols-2 gap-2 mb-3">
+<div class="bg-white p-2 rounded">Monthly Services: <span id="monthCount">0</span></div>
+<div class="bg-white p-2 rounded">Weekly Services: <span id="weekCount">0</span></div>
+<div class="bg-white p-2 rounded">Money Received: $<span id="received">0</span></div>
+<div class="bg-white p-2 rounded">Pending: $<span id="pending">0</span></div>
+</div>
+
+<!-- ENTRY FORM -->
+<div class="bg-white p-3 rounded mb-3">
+<input id="name" placeholder="Customer Name" class="border p-1 w-full mb-2">
+<input type="date" id="date" class="border p-1 w-full mb-2">
+<input type="time" id="time" class="border p-1 w-full mb-2">
+<button onclick="addService()" class="bg-blue-500 text-white px-3 py-1 rounded">Add</button>
+</div>
+
+<!-- EXPORT -->
+<div class="flex gap-2">
+<button onclick="exportExcel()" class="bg-green-500 text-white p-2 rounded w-full">Export Excel</button>
+<button onclick="exportPDF()" class="bg-red-500 text-white p-2 rounded w-full">Export PDF</button>
+</div>
+
+</div>
+
+<!-- LOG PAGE -->
+<div id="log" class="page p-3">
+<h2 class="font-bold mb-2">Log History</h2>
+
+<input type="date" id="startDate" class="border p-1 mb-2">
+<input type="date" id="endDate" class="border p-1 mb-2">
+<button onclick="filterLogs()" class="bg-blue-500 text-white px-2 py-1">Filter</button>
+
+<div id="logList"></div>
+</div>
+
+<!-- CLIENT PAGE -->
+<div id="clients" class="page p-3">
+<h2 class="font-bold">Clients</h2>
+<div id="clientList"></div>
+</div>
+
+<!-- CALENDAR -->
+<div id="calendar" class="page p-3">
+<input type="date" id="calDate" onchange="showCalendarLogs()">
+<div id="calLogs"></div>
+</div>
+
+<script>
+
+let logs = JSON.parse(localStorage.getItem("logs")) || [];
+
+function save() {
+localStorage.setItem("logs", JSON.stringify(logs));
+updateStats();
+renderLogs();
+renderClients();
+}
+
+function showPage(id){
+document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+document.getElementById(id).classList.add('active');
+}
+
+function toggleDark(){
+document.getElementById("body").classList.toggle("dark");
+}
+
+function addService(){
+let name = document.getElementById("name").value;
+let date = document.getElementById("date").value;
+let time = document.getElementById("time").value;
+
+if(!name || !date || !time) return alert("Fill all fields");
+
+logs.push({
+name, date, time,
+cost:15,
+paid:false
+});
+
+save();
+}
+
+function updateStats(){
+let now = new Date();
+let month = now.getMonth();
+let weekStart = new Date(now);
+weekStart.setDate(now.getDate()-now.getDay()+1);
+
+let monthCount = 0;
+let weekCount = 0;
+let received = 0;
+let pending = 0;
+
+logs.forEach(l=>{
+let d = new Date(l.date);
+
+if(d.getMonth()===month) monthCount++;
+if(d>=weekStart) weekCount++;
+
+if(l.paid) received += 15;
+else pending += 15;
+});
+
+document.getElementById("monthCount").innerText = monthCount;
+document.getElementById("weekCount").innerText = weekCount;
+document.getElementById("received").innerText = received;
+document.getElementById("pending").innerText = pending;
+}
+
+function renderLogs(list = logs){
+let div = document.getElementById("logList");
+div.innerHTML = "";
+
+list.forEach((l,i)=>{
+div.innerHTML += `
+<div class="bg-white p-2 mt-2 rounded">
+${l.name} - ${l.date} ${formatTime(l.time)}
+<div class="flex gap-2 mt-1">
+<button onclick="editLog(${i})" class="bg-blue-500 text-white px-2">Edit</button>
+<button onclick="deleteLog(${i})" class="bg-red-500 text-white px-2">Delete</button>
+</div>
+</div>`;
+});
+}
+
+function deleteLog(i){
+logs.splice(i,1);
+save();
+}
+
+function editLog(i){
+let newName = prompt("Edit Name", logs[i].name);
+if(newName) logs[i].name = newName;
+save();
+}
+
+function filterLogs(){
+let s = document.getElementById("startDate").value;
+let e = document.getElementById("endDate").value;
+
+let filtered = logs.filter(l=>{
+return (!s || l.date>=s) && (!e || l.date<=e);
+});
+
+renderLogs(filtered);
+}
+
+function renderClients(){
+let clients = {};
+logs.forEach(l=>{
+if(!clients[l.name]) clients[l.name]=[];
+clients[l.name].push(l);
+});
+
+let div = document.getElementById("clientList");
+div.innerHTML = "";
+
+Object.keys(clients).forEach(name=>{
+div.innerHTML += `<div onclick="openClient('${name}')" class="bg-white p-2 mt-2 rounded">${name}</div>`;
+});
+}
+
+function openClient(name){
+let data = logs.filter(l=>l.name===name);
+let html = `<h3>${name}</h3>`;
+
+data.forEach((l,i)=>{
+html += `
+<div class="bg-gray-200 p-2 mt-1">
+${l.date} ${formatTime(l.time)}
+<div class="flex gap-2 mt-1">
+<button onclick="markPaid(${i})" class="bg-green-500 text-white px-2">Paid</button>
+<button onclick="deleteLog(${i})" class="bg-red-500 text-white px-2">Delete</button>
+</div>
+</div>`;
+});
+
+html += `<button onclick="share('${name}')" class="bg-blue-500 text-white mt-2 p-2">Share</button>`;
+
+document.getElementById("clientList").innerHTML = html;
+}
+
+function markPaid(i){
+logs[i].paid = true;
+save();
+}
+
+function share(name){
+let data = logs.filter(l=>l.name===name && !l.paid);
+let total = data.length * 15;
+
+let msg = `Hi ${name},\n\nPending services:\n`;
+
+data.forEach(l=>{
+msg += `${l.date} ${formatTime(l.time)}\n`;
+});
+
+msg += `\nTotal Due: $${total}\nPlease pay ASAP and share screenshot.`;
+
+navigator.share ? navigator.share({text:msg}) : alert(msg);
+}
+
+function showCalendarLogs(){
+let date = document.getElementById("calDate").value;
+let list = logs.filter(l=>l.date===date);
+
+let div = document.getElementById("calLogs");
+div.innerHTML = "";
+
+list.forEach(l=>{
+div.innerHTML += `<div>${l.name} - ${formatTime(l.time)}</div>`;
+});
+}
+
+function formatTime(t){
+let [h,m] = t.split(":");
+h = Number(h);
+let ampm = h>=12?"PM":"AM";
+h = h%12 || 12;
+return `${h}:${m} ${ampm}`;
+}
+
+function exportExcel(){
+let csv = "Name,Date,Time,Status\n";
+logs.forEach(l=>{
+csv += `${l.name},${l.date},${l.time},${l.paid?"Paid":"Pending"}\n`;
+});
+let blob = new Blob([csv]);
+let a = document.createElement("a");
+a.href = URL.createObjectURL(blob);
+a.download = "logs.csv";
+a.click();
+}
+
+function exportPDF(){
+window.print();
+}
+
+updateStats();
+renderLogs();
+renderClients();
+
+</script>
+
+</body>
+</html>
