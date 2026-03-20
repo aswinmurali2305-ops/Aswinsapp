@@ -7,22 +7,12 @@
 <script src="https://cdn.tailwindcss.com"></script>
 
 <style>
-body {
-background-color: #e5e7eb;
-}
+body { background-color: #e5e7eb; }
 
-.dark {
-background-color: #000 !important;
-color: white;
-}
+.dark { background-color: #000 !important; color: white; }
 
-.dark .bg-white {
-background-color: #1f2937 !important;
-}
-
-.dark .bg-gray-200 {
-background-color: #374151 !important;
-}
+.dark .bg-white { background-color: #1f2937 !important; }
+.dark .bg-gray-200 { background-color: #374151 !important; }
 
 .page { display: none; }
 .active { display: block; }
@@ -119,8 +109,16 @@ function toggleDark(){
 document.body.classList.toggle("dark");
 }
 
+function normalizeName(name){
+return name.trim().toLowerCase();
+}
+
+function formatName(name){
+return name.trim().charAt(0).toUpperCase() + name.trim().slice(1).toLowerCase();
+}
+
 function addService(){
-let name = document.getElementById("name").value;
+let name = formatName(document.getElementById("name").value);
 let date = document.getElementById("date").value;
 let time = document.getElementById("time").value;
 
@@ -177,7 +175,7 @@ save();
 
 function editLog(i){
 let newName = prompt("Edit Name", logs[i].name);
-if(newName) logs[i].name = newName;
+if(newName) logs[i].name = formatName(newName);
 save();
 }
 
@@ -190,18 +188,36 @@ renderLogs(filtered);
 }
 
 function renderClients(list = logs){
-let clients = {};
+
+let clientMap = {};
+
 list.forEach(l=>{
-if(!clients[l.name]) clients[l.name]=[];
-clients[l.name].push(l);
+let key = normalizeName(l.name);
+
+if(!clientMap[key]){
+clientMap[key] = {
+name: l.name,
+pending: 0
+};
+}
+
+if(!l.paid) clientMap[key].pending += 15;
 });
+
+// convert to array and sort by pending desc
+let sorted = Object.values(clientMap).sort((a,b)=>b.pending - a.pending);
 
 let div = document.getElementById("clientList");
 div.innerHTML = "";
 
-Object.keys(clients).forEach(name=>{
-div.innerHTML += `<div onclick="openClient('${name}')" class="bg-white p-2 mt-2 rounded">${name}</div>`;
+sorted.forEach(c=>{
+div.innerHTML += `
+<div onclick="openClient('${c.name}')" class="bg-white p-2 mt-2 rounded flex justify-between">
+<span>${c.name}</span>
+<span class="text-red-500 font-bold">$${c.pending}</span>
+</div>`;
 });
+
 }
 
 function filterClients(){
@@ -213,7 +229,9 @@ renderClients(filtered);
 }
 
 function openClient(name){
-let data = logs.map((l,index)=>({...l,index})).filter(l=>l.name===name);
+
+let data = logs.map((l,index)=>({...l,index}))
+.filter(l=>normalizeName(l.name)===normalizeName(name));
 
 let html = `<button onclick="renderClients()" class="bg-gray-500 text-white px-2 py-1 mb-2">⬅ Back</button>`;
 html += `<h3 class="font-bold">${name}</h3>`;
@@ -230,7 +248,7 @@ ${l.date} ${formatTime(l.time)}
 </div>`;
 });
 
-html += `<button onclick="share('${name}')" class="bg-blue-500 text-white mt-2 p-2">Share via WhatsApp</button>`;
+html += `<button onclick="share('${name}')" class="bg-blue-500 text-white mt-2 p-2 w-full">Share via WhatsApp</button>`;
 
 document.getElementById("clientList").innerHTML = html;
 }
@@ -241,7 +259,7 @@ save();
 }
 
 function share(name){
-let data = logs.filter(l=>l.name===name && !l.paid);
+let data = logs.filter(l=>normalizeName(l.name)===normalizeName(name) && !l.paid);
 let total = data.length * 15;
 
 let msg = `Hi ${name},%0A%0APending services:%0A`;
