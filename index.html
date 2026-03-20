@@ -7,13 +7,29 @@
 <script src="https://cdn.tailwindcss.com"></script>
 
 <style>
-.dark { background-color: #111827; color: white; }
+body {
+background-color: #e5e7eb;
+}
+
+.dark {
+background-color: #000 !important;
+color: white;
+}
+
+.dark .bg-white {
+background-color: #1f2937 !important;
+}
+
+.dark .bg-gray-200 {
+background-color: #374151 !important;
+}
+
 .page { display: none; }
 .active { display: block; }
 </style>
 </head>
 
-<body class="bg-gray-100" id="body">
+<body id="body">
 
 <!-- HEADER -->
 <div class="flex justify-between p-3 bg-blue-600 text-white">
@@ -23,7 +39,7 @@
 </div>
 
 <!-- NAV -->
-<div class="flex justify-around bg-gray-200 p-2 text-sm">
+<div class="flex justify-around bg-gray-300 p-2 text-sm">
 <button onclick="showPage('dashboard')">Dashboard</button>
 <button onclick="showPage('log')">Log</button>
 <button onclick="showPage('clients')">Clients</button>
@@ -33,7 +49,6 @@
 <!-- DASHBOARD -->
 <div id="dashboard" class="page active p-3">
 
-<!-- STATS -->
 <div class="grid grid-cols-2 gap-2 mb-3">
 <div class="bg-white p-2 rounded">Monthly Services: <span id="monthCount">0</span></div>
 <div class="bg-white p-2 rounded">Weekly Services: <span id="weekCount">0</span></div>
@@ -41,7 +56,6 @@
 <div class="bg-white p-2 rounded">Pending: $<span id="pending">0</span></div>
 </div>
 
-<!-- ENTRY FORM -->
 <div class="bg-white p-3 rounded mb-3">
 <input id="name" placeholder="Customer Name" class="border p-1 w-full mb-2">
 <input type="date" id="date" class="border p-1 w-full mb-2">
@@ -49,7 +63,6 @@
 <button onclick="addService()" class="bg-blue-500 text-white px-3 py-1 rounded">Add</button>
 </div>
 
-<!-- EXPORT -->
 <div class="flex gap-2">
 <button onclick="exportExcel()" class="bg-green-500 text-white p-2 rounded w-full">Export Excel</button>
 <button onclick="exportPDF()" class="bg-red-500 text-white p-2 rounded w-full">Export PDF</button>
@@ -70,7 +83,13 @@
 
 <!-- CLIENT PAGE -->
 <div id="clients" class="page p-3">
-<h2 class="font-bold">Clients</h2>
+
+<h2 class="font-bold mb-2">Clients</h2>
+
+<input type="date" id="clientStart" class="border p-1 mb-2">
+<input type="date" id="clientEnd" class="border p-1 mb-2">
+<button onclick="filterClients()" class="bg-blue-500 text-white px-2 py-1">Filter</button>
+
 <div id="clientList"></div>
 </div>
 
@@ -84,7 +103,7 @@
 
 let logs = JSON.parse(localStorage.getItem("logs")) || [];
 
-function save() {
+function save(){
 localStorage.setItem("logs", JSON.stringify(logs));
 updateStats();
 renderLogs();
@@ -97,7 +116,7 @@ document.getElementById(id).classList.add('active');
 }
 
 function toggleDark(){
-document.getElementById("body").classList.toggle("dark");
+document.body.classList.toggle("dark");
 }
 
 function addService(){
@@ -107,12 +126,7 @@ let time = document.getElementById("time").value;
 
 if(!name || !date || !time) return alert("Fill all fields");
 
-logs.push({
-name, date, time,
-cost:15,
-paid:false
-});
-
+logs.push({name,date,time,cost:15,paid:false});
 save();
 }
 
@@ -122,10 +136,7 @@ let month = now.getMonth();
 let weekStart = new Date(now);
 weekStart.setDate(now.getDate()-now.getDay()+1);
 
-let monthCount = 0;
-let weekCount = 0;
-let received = 0;
-let pending = 0;
+let monthCount=0, weekCount=0, received=0, pending=0;
 
 logs.forEach(l=>{
 let d = new Date(l.date);
@@ -133,8 +144,8 @@ let d = new Date(l.date);
 if(d.getMonth()===month) monthCount++;
 if(d>=weekStart) weekCount++;
 
-if(l.paid) received += 15;
-else pending += 15;
+if(l.paid) received+=15;
+else pending+=15;
 });
 
 document.getElementById("monthCount").innerText = monthCount;
@@ -174,16 +185,13 @@ function filterLogs(){
 let s = document.getElementById("startDate").value;
 let e = document.getElementById("endDate").value;
 
-let filtered = logs.filter(l=>{
-return (!s || l.date>=s) && (!e || l.date<=e);
-});
-
+let filtered = logs.filter(l=>(!s||l.date>=s)&&(!e||l.date<=e));
 renderLogs(filtered);
 }
 
-function renderClients(){
+function renderClients(list = logs){
 let clients = {};
-logs.forEach(l=>{
+list.forEach(l=>{
 if(!clients[l.name]) clients[l.name]=[];
 clients[l.name].push(l);
 });
@@ -196,28 +204,39 @@ div.innerHTML += `<div onclick="openClient('${name}')" class="bg-white p-2 mt-2 
 });
 }
 
-function openClient(name){
-let data = logs.filter(l=>l.name===name);
-let html = `<h3>${name}</h3>`;
+function filterClients(){
+let s = document.getElementById("clientStart").value;
+let e = document.getElementById("clientEnd").value;
 
-data.forEach((l,i)=>{
+let filtered = logs.filter(l=>(!s||l.date>=s)&&(!e||l.date<=e));
+renderClients(filtered);
+}
+
+function openClient(name){
+let data = logs.map((l,index)=>({...l,index})).filter(l=>l.name===name);
+
+let html = `<button onclick="renderClients()" class="bg-gray-500 text-white px-2 py-1 mb-2">⬅ Back</button>`;
+html += `<h3 class="font-bold">${name}</h3>`;
+
+data.forEach(l=>{
 html += `
 <div class="bg-gray-200 p-2 mt-1">
 ${l.date} ${formatTime(l.time)}
 <div class="flex gap-2 mt-1">
-<button onclick="markPaid(${i})" class="bg-green-500 text-white px-2">Paid</button>
-<button onclick="deleteLog(${i})" class="bg-red-500 text-white px-2">Delete</button>
+<button onclick="editLog(${l.index})" class="bg-blue-500 text-white px-2">Edit</button>
+<button onclick="markPaid(${l.index})" class="bg-green-500 text-white px-2">Paid</button>
+<button onclick="deleteLog(${l.index})" class="bg-red-500 text-white px-2">Delete</button>
 </div>
 </div>`;
 });
 
-html += `<button onclick="share('${name}')" class="bg-blue-500 text-white mt-2 p-2">Share</button>`;
+html += `<button onclick="share('${name}')" class="bg-blue-500 text-white mt-2 p-2">Share via WhatsApp</button>`;
 
 document.getElementById("clientList").innerHTML = html;
 }
 
 function markPaid(i){
-logs[i].paid = true;
+logs[i].paid=true;
 save();
 }
 
@@ -225,15 +244,15 @@ function share(name){
 let data = logs.filter(l=>l.name===name && !l.paid);
 let total = data.length * 15;
 
-let msg = `Hi ${name},\n\nPending services:\n`;
+let msg = `Hi ${name},%0A%0APending services:%0A`;
 
 data.forEach(l=>{
-msg += `${l.date} ${formatTime(l.time)}\n`;
+msg += `${l.date} ${formatTime(l.time)}%0A`;
 });
 
-msg += `\nTotal Due: $${total}\nPlease pay ASAP and share screenshot.`;
+msg += `%0ATotal Due: $${total}%0APlease make the payment and share screenshot.`;
 
-navigator.share ? navigator.share({text:msg}) : alert(msg);
+window.open(`https://wa.me/?text=${msg}`,"_blank");
 }
 
 function showCalendarLogs(){
